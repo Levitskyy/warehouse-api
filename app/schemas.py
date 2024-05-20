@@ -2,9 +2,11 @@ from pydantic import BaseModel
 from datetime import datetime
 from typing import List, Optional, Tuple
 
+
 class CoilCreate(BaseModel):
     length: float
     weight: float
+
 
 class Coil(BaseModel):
     id: int
@@ -15,6 +17,7 @@ class Coil(BaseModel):
 
     class Config:
         orm_mode = True
+
 
 class CoilFilter(BaseModel):
     id_ranges: Optional[List[Tuple[int, int]]] = None

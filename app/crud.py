@@ -1,8 +1,9 @@
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 from app import models, schemas
 from datetime import datetime, timezone
+
 
 def create_coil(db: Session, coil: schemas.CoilCreate) -> models.Coil:
     db_coil = models.Coil(
@@ -15,7 +16,8 @@ def create_coil(db: Session, coil: schemas.CoilCreate) -> models.Coil:
     db.refresh(db_coil)
     return db_coil
 
-def delete_coil(db: Session, coil_id: int) -> models.Coil:
+
+def delete_coil(db: Session, coil_id: int) -> Optional[models.Coil]:
     db_coil = db.query(models.Coil).filter(models.Coil.id == coil_id).first()
     if db_coil:
         db_coil.date_removed = datetime.now(timezone.utc)
@@ -23,11 +25,13 @@ def delete_coil(db: Session, coil_id: int) -> models.Coil:
         db.refresh(db_coil)
     return db_coil
 
-def filter_by_ranges(query, column, ranges: Optional[List[Tuple]]):
+
+def filter_by_ranges(query: Any, column: Any, ranges: Optional[List[Tuple]]) -> Any:
     if ranges:
         filters = [column.between(start, end) for start, end in ranges]
         query = query.filter(or_(*filters))
     return query
+
 
 def get_coils_by_filters(
         db: Session,
@@ -47,11 +51,15 @@ def get_coils_by_filters(
 
     return query.all()
 
-def get_coil_stats(db: Session, start_date: datetime, end_date: datetime):
+
+def get_coil_stats(db: Session, start_date: datetime, end_date: datetime) -> Dict:
     coils_added = db.query(models.Coil).filter(models.Coil.date_added.between(start_date, end_date)).count()
     coils_removed = db.query(models.Coil).filter(models.Coil.date_removed.between(start_date, end_date)).count()
 
-    coils_in_time_range = db.query(models.Coil).filter(models.Coil.date_added <= end_date, or_(models.Coil.date_removed >= start_date, models.Coil.date_removed == None)).all()
+    coils_in_time_range = db.query(models.Coil).filter(
+        models.Coil.date_added <= end_date,
+        or_(models.Coil.date_removed >= start_date, models.Coil.date_removed.is_(None))
+    ).all()
 
     sum_length = sum(coil.length for coil in coils_in_time_range)
     sum_weight = sum(coil.weight for coil in coils_in_time_range)
@@ -64,10 +72,14 @@ def get_coil_stats(db: Session, start_date: datetime, end_date: datetime):
     min_weight = min(coil.weight for coil in coils_in_time_range) if coils_in_time_range else 0
     max_weight = max(coil.weight for coil in coils_in_time_range) if coils_in_time_range else 0
 
-    removed_coils = [coil for coil in coils_in_time_range if coil.date_removed != None]
+    removed_coils = [coil for coil in coils_in_time_range if coil.date_removed is not None]
 
-    min_gap = min((coil.date_removed - coil.date_added).days for coil in removed_coils) if removed_coils else 0
-    max_gap = max((coil.date_removed - coil.date_added).days for coil in removed_coils) if removed_coils else 0
+    if removed_coils:
+        min_gap = min((coil.date_removed - coil.date_added).days for coil in removed_coils if coil.date_removed)
+        max_gap = max((coil.date_removed - coil.date_added).days for coil in removed_coils if coil.date_removed)
+    else:
+        min_gap = 0
+        max_gap = 0
 
     return {
         'coils_added': coils_added,
@@ -81,4 +93,3 @@ def get_coil_stats(db: Session, start_date: datetime, end_date: datetime):
         'min_gap': min_gap,
         'max_gap': max_gap
     }
-    
