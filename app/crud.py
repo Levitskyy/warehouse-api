@@ -1,4 +1,4 @@
-from typing import Dict, Generator, List, Optional, Tuple
+from typing import Generator, List, Optional, Tuple
 from sqlalchemy import select, or_, func
 from sqlalchemy.orm import Session
 from app import models, schemas
@@ -58,7 +58,9 @@ def dateranges(start_date: date, end_date: date) -> Generator[Tuple[datetime, da
         yield cur_day, next_day
 
 
-def get_coil_stats(db: Session, start_date: datetime, end_date: datetime) -> Dict:
+def get_coil_stats(db: Session, start_date: date, end_date: date) -> schemas.CoilStats | None:
+    if start_date > datetime.now(timezone.utc).date():
+        return None
     coils_added = db.execute(
         select(func.count(models.Coil.id)).where(models.Coil.date_added.between(start_date, end_date))
     ).scalar_one()
@@ -95,7 +97,7 @@ def get_coil_stats(db: Session, start_date: datetime, end_date: datetime) -> Dic
     min_sum_weight_date = None
     max_sum_weight_date = None
 
-    for cur_day, next_day in dateranges(start_date.date(), end_date.date()):
+    for cur_day, next_day in dateranges(start_date, end_date):
         day_coils = db.execute(
             select(models.Coil).where(
                 models.Coil.date_added <= cur_day,
@@ -129,20 +131,20 @@ def get_coil_stats(db: Session, start_date: datetime, end_date: datetime) -> Dic
         min_gap = None
         max_gap = None
 
-    return {
-        'coils_added': coils_added,
-        'coils_removed': coils_removed,
-        'avg_length': avg_length,
-        'avg_weight': avg_weight,
-        'min_length': min_length,
-        'max_length': max_length,
-        'min_weight': min_weight,
-        'max_weight': max_weight,
-        'sum_weight': sum_weight,
-        'min_gap': min_gap,
-        'max_gap': max_gap,
-        'min_coils_count_date': min_coils_count_date,
-        'max_coils_count_date': max_coils_count_date,
-        'min_sum_weight_date': min_sum_weight_date,
-        'max_sum_weight_date': max_sum_weight_date
-    }
+    return schemas.CoilStats(
+        coils_added=coils_added,
+        coils_removed=coils_removed,
+        avg_length=avg_length,
+        avg_weight=avg_weight,
+        min_length=min_length,
+        max_length=max_length,
+        min_weight=min_weight,
+        max_weight=max_weight,
+        sum_weight=sum_weight,
+        min_gap=min_gap,
+        max_gap=max_gap,
+        min_coils_count_date=min_coils_count_date,
+        max_coils_count_date=max_coils_count_date,
+        min_sum_weight_date=min_sum_weight_date,
+        max_sum_weight_date=max_sum_weight_date
+    )

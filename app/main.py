@@ -1,5 +1,5 @@
-from datetime import datetime
-from typing import Annotated, Dict, List, Tuple
+from datetime import date, datetime
+from typing import Annotated, List, Tuple
 from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
@@ -50,7 +50,11 @@ def get_coils(
 
 
 # Эндпоинт для получения статистики за промежуток времени
-@app.get("/api/coil/stats")
-def get_coil_stats(start_date: datetime, end_date: datetime, db: Session = Depends(database.get_db)) -> Dict:
+@app.get("/api/coil/stats", description="end date is not included in range", response_model=schemas.CoilStats)
+def get_coil_stats(start_date: date, end_date: date, db: Session = Depends(database.get_db)) -> schemas.CoilStats:
+    if start_date >= end_date:
+        raise HTTPException(status_code=422, detail="Start date is after end date")
     stats = crud.get_coil_stats(db, start_date, end_date)
-    return stats
+    if stats:
+        return stats
+    raise HTTPException(status_code=422, detail="Start date is after today")
