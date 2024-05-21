@@ -1,6 +1,6 @@
 from datetime import datetime
-from typing import Dict, List
-from fastapi import FastAPI, Depends, HTTPException
+from typing import Annotated, Dict, List, Tuple
+from fastapi import FastAPI, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app import models, schemas, crud, database
@@ -11,7 +11,7 @@ models.Base.metadata.create_all(bind=database.engine)
 
 
 # Эндпоинт для добавления нового рулона
-@app.post("/api/coil")
+@app.post("/api/coil", status_code=201)
 def create_coil(coil: schemas.CoilCreate, db: Session = Depends(database.get_db)) -> int:
     db_coil = crud.create_coil(db, coil)
     if db_coil is None:
@@ -30,14 +30,21 @@ def delete_coil(coil_id: int, db: Session = Depends(database.get_db)) -> models.
 
 # эндпоинт для получения списка рулонов по наборам фильтров
 @app.get("/api/coil", response_model=List[schemas.Coil])
-def get_coils(filters: schemas.CoilFilter, db: Session = Depends(database.get_db)) -> List[models.Coil]:
+def get_coils(
+    id_range: Annotated[Tuple[int, int] | None, Query(min_length=2)] = None,
+    weight_range: Annotated[Tuple[float, float] | None, Query(min_length=2)] = None,
+    length_range: Annotated[Tuple[float, float] | None, Query(min_length=2)] = None,
+    date_added_range: Annotated[Tuple[datetime, datetime] | None, Query(min_length=2)] = None,
+    date_removed_range: Annotated[Tuple[datetime, datetime] | None, Query(min_length=2)] = None,
+    db: Session = Depends(database.get_db)
+) -> List[models.Coil]:
     coils = crud.get_coils_by_filters(
         db=db,
-        id_ranges=filters.id_ranges,
-        weight_ranges=filters.weight_ranges,
-        length_ranges=filters.length_ranges,
-        date_added_ranges=filters.date_added_ranges,
-        date_removed_ranges=filters.date_removed_ranges
+        id_range=id_range,
+        weight_range=weight_range,
+        length_range=length_range,
+        date_added_range=date_added_range,
+        date_removed_range=date_removed_range
     )
     return coils
 
